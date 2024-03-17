@@ -10,6 +10,7 @@ from openpyxl.utils import get_column_letter
 
 
 def create_table():
+    # Create or connect to the database and create necessary tables if not exist
     vt = sql.connect("Stok.sqlite")
     imlec = vt.cursor()
     imlec.execute("CREATE TABLE IF NOT EXISTS Musteri (Adi,Soyadi,Telefon,E_posta,Adres)")
@@ -39,34 +40,36 @@ text = ctk.CTkEntry(window, text_color="Green", bg_color="#242323", fg_color="#2
 text.grid(column=4, row=4,sticky="w", padx=10, pady=40)
 
 
+# Function to export summary to Excel
 def export_to_excel(ozet, filename):
     wb = Workbook()
     ws = wb.active
-    # Başlık satırlarını ekleme ve mavi renk verme
+    # Add header rows and set them to blue color
     columns = ozet["columns"]
     for col_idx, column_name in enumerate(columns, start=1):
         cell = ws.cell(row=1, column=col_idx, value=column_name)
         cell.fill = PatternFill(start_color="0000FF", end_color="0000FF", fill_type="solid")  # Mavi renk
-        # Hücre boyutunu ayarla
+        # Set cell size
         ws.column_dimensions[get_column_letter(col_idx)].width = max(len(column_name) + 2, 10)  # Minimum 10 karakter genişlik
-    # Treeview'dan Excel'e veri aktarımı
+    # Transfer data from Treeview to Excel
     for row_idx, item in enumerate(ozet.get_children(), start=2):
         values = ozet.item(item, "values")
         for col_idx, value in enumerate(values, start=1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            # Hücre boyutunu ayarla
+            # Set cell size
             ws.column_dimensions[get_column_letter(col_idx)].width = max(ws.column_dimensions[get_column_letter(col_idx)].width, len(str(value)) + 2)
-    # Net kar başlığını ve toplam tutarın eklenmesi
+    # Add Profit title and total amount
     net_kar_column = len(columns) + 1
     ws.cell(row=1, column=net_kar_column, value="Net Kâr").fill = PatternFill(start_color="0000FF", end_color="0000FF", fill_type="solid")  # Mavi renk
     ws.cell(row=2, column=net_kar_column, value=text.get()).fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")  # Yeşil renk
-    # Hücre boyutunu ayarla
+    # Set cell size
     ws.column_dimensions[get_column_letter(net_kar_column)].width = max(len("Net Kâr") + 2, 10)  # Minimum 10 karakter genişlik
-    # Excel dosyasının kaydedilmesi
+    # Save the Excel file
     wb.save(filename)
 
 
-def save_file(): # Dosya yolunun ve dosya adının kullanıcıdan istenmesi
+def save_file():# Function to save file
+    # Requesting the file path and file name from the user
     filename = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
     if filename:
         export_to_excel(ozet, filename)
@@ -76,8 +79,8 @@ excel_button = ctk.CTkButton(window, text="Excel'e Aktar", fg_color="blue", hove
 excel_button.grid(column=4, row=4, sticky="ne",padx=15)
 
 
-def kar_hesapla():
-    # Veritabanı bağlantısını oluştur
+def kar_hesapla(): # Function to calculate profit
+    # Create a database connection
     baglanti = sql.connect("Stok.sqlite")
     scursor = baglanti.cursor()
     ucursor = baglanti.cursor()
@@ -85,25 +88,25 @@ def kar_hesapla():
     # Toplam karı hesaplamak için bir değişken tanımla
     toplam_kar = 0
 
-    # "Satis" tablosundan verileri al
+    # Retrieve all sales data from the Sale table
     scursor.execute("SELECT UrunKodu, Miktar, Tutar FROM Satis")
     satis_veri = scursor.fetchall()
 
-    # Her bir satır için kar hesapla ve toplam kara ekle
+    # Calculate profit for each line and add to total profit
     for satir in satis_veri:
         kod, miktar, tutar = satir
 
-        # "Urun" tablosundan ürün maliyetini al
+        # Get product cost from "Product" table
         ucursor.execute("SELECT UrunMaliyet FROM Urun WHERE UrunKodu=?", (kod,))
         urun_veri = ucursor.fetchone()
 
-        if urun_veri:  # Ürün verisi varsa
+        if urun_veri:  # If product data exist
             urun_maliyeti = urun_veri[0]
-            # Miktar ve ürün maliyetini integer'a dönüştürerek kar hesapla
+            # Quantity and product cost are converted into integers and calculated as profit.
             kar = tutar - (int(miktar) * int(urun_maliyeti))
-            toplam_kar += kar  # Toplam kara karı ekle
+            toplam_kar += kar  # Add profit to total profit
 
-    # Veritable bağlantısını kapat
+    # Close database connection
     baglanti.close()
     text.delete(0, tk.END)
     text.insert(tk.END, toplam_kar)
@@ -113,7 +116,7 @@ def kar_hesapla():
 kar_hesapla()
 
 
-def fetch_data(): # Veritabanından veri alma işlevi
+def fetch_data(): # Function to retrieve data from database
     baglanti = sql.connect("Stok.sqlite")
     cursor = baglanti.cursor()
     cursor.execute("SELECT * FROM Satis")
@@ -121,17 +124,17 @@ def fetch_data(): # Veritabanından veri alma işlevi
     return data
 
 
-# TreeView'i güncelleme işlevi
+# TreeView update function
 def update_treeview():
-    # Verileri al
+    # Get data
     data = fetch_data()
-    # Mevcut verileri temizle
+    # Clear existing data
     ozet.delete(*ozet.get_children())
-    # Yeni verileri TreeView'e ekle
+    # Add new data to TreeView
     for row in data:
         ozet.insert("", "end", values=row)
-    # Otomatik güncelleme işlevini tekrar çağır
-    ozet.after(50, update_treeview)  # 0.05 saniye sonra tekrar çağır
+    # Call the auto-update function again
+    ozet.after(50, update_treeview)  # Call again after 0.05 seconds
 
 
 update_treeview()
@@ -274,7 +277,7 @@ class MusList(ctk.CTkToplevel):
                 cell_width = ctk.CTkFont().measure(self.tv.item(cell, "values")[self.tv["columns"].index(column)])
                 if cell_width > self.tv.column(column, width=None):
                     self.tv.column(column, width=cell_width)  # Hücre içeriğinin genişliği
-    # Treeview oluşturduktan sonra sutun genisliklerini ayarla
+    # Adjusting column widths after creating a treeview
 
     def sec(self, event):
         item = self.tv.selection()[0]
@@ -289,14 +292,14 @@ class MusList(ctk.CTkToplevel):
         self.e4.insert(0, secilen[3])
         self.e5.delete(0, tk.END)
         self.e5.insert(0, secilen[4])
-        #Entry'lerin içini temizler seçilen verileri entry'lere aktarır.
+        # It cleans the inside of the entries and transfers the selected data to the entries.
 
     def guncelle(self):
-        # Seçili öğenin kimliğini al
+        # Get the ID of the selected item
         secili_item = self.tv.selection()[0]
-        # Seçili öğenin verilerini al
+        # Get data of selected item
         secilen_veri = self.tv.item(secili_item, "values")
-        # Yeni verileri al
+        # Get new data
         yeni_veri = (
             self.e1.get(),
             self.e2.get(),
@@ -304,28 +307,28 @@ class MusList(ctk.CTkToplevel):
             self.e4.get(),
             self.e5.get()
         )
-        # Veritabanında güncelleme yap
+        # Update the database
         baglanti = sql.connect("Stok.sqlite")
         cursor = baglanti.cursor()
         cursor.execute("UPDATE Musteri SET Adi=?, Soyadi=?, Telefon=?, 'E_posta'=?, Adres=? WHERE Telefon=?",
                        (*yeni_veri, secilen_veri[2]))
         baglanti.commit()
         baglanti.close()
-        # Treeview'de öğeyi güncelle
+        # Update item in treeview
         self.tv.item(secili_item, values=yeni_veri)
 
     def sil(self):
-        # Seçili öğenin kimliğini al
+        # Get the ID of the selected item
         secili_item = self.tv.selection()[0]
-        # Seçili öğenin verilerini al
+        # Get data of selected item
         secilen_veri = self.tv.item(secili_item, "values")
-        # Veritabanından kaydı sil
+        # Delete record from database
         baglanti = sql.connect("Stok.sqlite")
         cursor = baglanti.cursor()
         cursor.execute("DELETE FROM Musteri WHERE Telefon=?", (secilen_veri[2],))
         baglanti.commit()
         baglanti.close()
-        # Treeview'den öğeyi sil
+        # Delete item from treeview
         self.tv.delete(secili_item)
 
     def verileri_getir(self):
@@ -458,8 +461,8 @@ class UrunList(ctk.CTkToplevel):
             for cell in self.tv.get_children():
                 cell_width = ctk.CTkFont().measure(self.tv.item(cell, "values")[self.tv["columns"].index(column)])
                 if cell_width > self.tv.column(column, width=None):
-                    self.tv.column(column, width=cell_width)  # Hücre içeriğinin genişliği
-# Treeview oluşturduktan sonra sutun genisliklerini ayarla
+                    self.tv.column(column, width=cell_width)  # Width of cell content
+# Adjusting column widths after creating a treeview
 
     def sec(self, event):
         item = self.tv.selection()[0]
@@ -476,11 +479,11 @@ class UrunList(ctk.CTkToplevel):
         self.e5.insert(0, secilen[4])
 
     def guncelle(self):
-        # Seçili öğenin kimliğini al
+        # Get the ID of the selected item
         secili_item = self.tv.selection()[0]
-        # Seçili öğenin verilerini al
+        # Get data of selected item
         secilen_veri = self.tv.item(secili_item, "values")
-        # Yeni verileri al
+        # Get new data
         yeni_veri = (
             self.e1.get(),
             self.e2.get(),
@@ -488,28 +491,28 @@ class UrunList(ctk.CTkToplevel):
             self.e4.get(),
             self.e5.get()
         )
-        # Veritabanında güncelleme yap
+        # Update the database
         baglanti = sql.connect("Stok.sqlite")
         cursor = baglanti.cursor()
         cursor.execute("UPDATE Urun SET UrunAdi=?,UrunKodu=?,UrunSayisi=?,UrunMaliyet=?,UrunSatis=? WHERE UrunKodu=?",
                        (*yeni_veri, secilen_veri[1]))
         baglanti.commit()
         baglanti.close()
-        # Treeview'de öğeyi güncelle
+        # Update item in treeview
         self.tv.item(secili_item, values=yeni_veri)
 
     def sil(self):
-        # Seçili öğenin kimliğini al
+        # Get the ID of the selected item
         secili_item = self.tv.selection()[0]
-        # Seçili öğenin verilerini al
+        # Get data of selected item
         secilen_veri = self.tv.item(secili_item, "values")
-        # Veritabanından kaydı sil
+        # Delete record from database
         baglanti = sql.connect("Stok.sqlite")
         cursor = baglanti.cursor()
         cursor.execute("DELETE FROM Urun WHERE UrunKodu=?", (secilen_veri[1],))
         baglanti.commit()
         baglanti.close()
-        # Treeview'den ögeyi sil
+        # Delete item from treeview
         self.tv.delete(secili_item)
 
     def verileri_getir(self):
